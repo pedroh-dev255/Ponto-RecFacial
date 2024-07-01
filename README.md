@@ -1,7 +1,7 @@
 # Ponto-RecFacial
 
 ## Visão Geral
-    Ponto-RecFacial é um sistema de reconhecimento facial construído com Node.js, Express e MySQL. O sistema permite que os usuários registrem suas imagens faciais e recuperem uma lista de    usuários registrados.
+    Ponto-RecFacial é um sistema de reconhecimento facial construído com Node.js, Express e MySQL. O sistema permite que os usuários registrem suas imagens faciais e recuperem uma lista de usuários registrados.
 
 ## Recursos
     Registro de usuário com upload de imagem facial
@@ -37,10 +37,11 @@
     O sistema usa um banco de dados MySQL para armazenar informações de usuários, incluindo suas imagens faciais. A conexão com o banco de dados é configurada para reconectar automaticamente em caso de perda de conexão.
 
 ## Licença
-    Ponto-RecFacial é licenciado sob a Licença MIT.
+    Ponto-RecFacial é licenciado sob a Licença Apache(2.0).
 
-## Autores
-    - Pedro henrique (pedro@phsolucoes.site)
+## Autor
+    Pedro Henrique (pedro@phsolucoes.site)
+
     Agradecimentos
     Express.js: https://expressjs.com/
     MySQL: https://www.mysql.com/

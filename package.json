@@ -1,7 +1,7 @@
 {
   "name": "ponto-recfacial",
   "version": "1.0.0",
-  "description": "",
+  "description": "Ponto-RecFacial é um sistema de reconhecimento facial construído com Node.js, Express e MySQL. O sistema permite que os usuários registrem suas imagens faciais e recuperem uma lista de usuários registrados.",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
