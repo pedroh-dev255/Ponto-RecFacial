@@ -4,28 +4,47 @@ const mysql = require('mysql');
 const path = require('path');
 const dotenv = require('dotenv');
 
-
 const app = express();
 dotenv.config();
 
 const port = 3000 || process.env.PORT;
 
-
-
-// Configuração do banco de dados
-const db = mysql.createConnection({
+// Configuração do banco de dados com reconexão automática
+const dbConfig = {
   host: process.env.DBHOST,
   user: process.env.DBUSER,
   password: process.env.DBPASS,
-  database: process.env.DBDB
-});
+  database: process.env.DBDB,
+  connectionLimit: 10, // Ajuste conforme necessário
+  queueLimit: 0,       // Ajuste conforme necessário
+  waitForConnections: true
+};
 
-db.connect(err => {
-  if (err) {
-    throw err;
-  }
-  console.log('MySQL conectado...');
-});
+let db;
+
+function handleDisconnect() {
+  db = mysql.createConnection(dbConfig);
+
+  db.connect(err => {
+    if (err) {
+      console.error('Erro ao conectar no MySQL:', err);
+      setTimeout(handleDisconnect, 2000); // Tentar reconectar após 2 segundos
+    } else {
+      console.log('MySQL conectado...');
+    }
+  });
+
+  db.on('error', err => {
+    console.error('Erro no MySQL:', err);
+    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+      handleDisconnect();
+    } else {
+      throw err;
+    }
+  });
+}
+
+handleDisconnect();
 
 // Middleware
 app.use(bodyParser.json());
