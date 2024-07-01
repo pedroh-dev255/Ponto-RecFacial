@@ -7,7 +7,7 @@ const dotenv = require('dotenv');
 const app = express();
 dotenv.config();
 
-const port = 3000 || process.env.PORT;
+const port = process.env.PORT || 3000;
 
 // Configuração do banco de dados com reconexão automática
 const dbConfig = {
@@ -79,5 +79,5 @@ app.get('/obter_usuarios', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
+  console.log(`Servidor rodando em http://localhost:${port}`);
 });
