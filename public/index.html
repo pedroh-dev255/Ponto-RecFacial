@@ -148,7 +148,7 @@
                         const nome = prompt("Por favor, informe seu nome:");
 
                         // Enviar dados para o servidor PHP
-                        const response = await fetch('registrar_usuario.php', {
+                        const response = await fetch('/registrar_usuario', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
@@ -175,7 +175,7 @@
 
                 async function loadRegisteredUsers() {
                     try {
-                        const response = await fetch('obter_usuarios.php');
+                        const response = await fetch('/obter_usuarios');
                         const usuarios = await response.json();
 
                         if (usuarios.success === false) {
