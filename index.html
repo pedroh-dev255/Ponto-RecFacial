@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reconhecimento Facial com face-api.js</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js/dist/face-api.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%; /* 100% da altura da viewport */
+            margin: 0;
+            flex-direction: column;
+            font-family: Arial, sans-serif;
+        }
+        #video-container {
+            position: relative;
+            width: 540px;
+            height: 720px;
+        }
+        video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background-color: black; /* Para visualizar caso a câmera não esteja ativa */
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+        #messages {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            width: 400px;
+            max-width: 90%;
+            max-height: 200px; /* Altura máxima da div de mensagens */
+            overflow-y: auto; /* Adiciona barra de rolagem vertical quando necessário */
+            overflow-wrap: break-word;
+        }
+        #input-container {
+            margin-top: 20px;
+            display: none; /* Inicia oculto até que seja necessário */
+        }
+        #input-container.visible {
+            display: block;
+        }
+        #db-status {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        #register-button {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Reconhecimento Facial com face-api.js</h1>
+    <div id="video-container">
+        <video id="video" autoplay muted></video>
+        <canvas id="overlay"></canvas>
+    </div>
+    
+    <div id="messages"></div>
+    
+    <div id="input-container">
+        <label for="nomeInput">Por favor, informe seu nome:</label><br>
+        <input type="text" id="nomeInput"><br>
+        <button id="registrarBtn">Registrar</button>
+    </div>
+    <div id="db-status"></div>
+    <button id="register-button">Registrar Rosto</button>
+    <br><br><br>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('overlay');
+            const messagesDiv = document.getElementById('messages');
+            const registerButton = document.getElementById('register-button');
+            const displaySize = { width: video.clientWidth, height: video.clientHeight };
+            let faceMatcher = null; // Armazena os rostos conhecidos
+            let labeledFaceDescriptors = []; // Armazena os descritores de rostos conhecidos
+
+            try {
+                // Carregar modelos da face-api.js
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
+                    faceapi.nets.faceLandmark68Net.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
+                    faceapi.nets.faceRecognitionNet.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
+                    faceapi.nets.faceExpressionNet.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights')
+                ]);
+
+                logMessage("Modelos carregados com sucesso");
+
+                // Carregar usuários registrados
+                await loadRegisteredUsers();
+
+                function startVideo() {
+                    navigator.mediaDevices.getUserMedia({ video: {} })
+                        .then(stream => {
+                            video.srcObject = stream;
+                        })
+                        .catch(err => logError('Erro ao acessar a câmera: ' + err));
+                }
+
+                video.addEventListener('play', () => {
+                    faceapi.matchDimensions(canvas, displaySize);
+
+                    setInterval(async () => {
+                        const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
+                        if (detections.length === 0) {
+                            logMessage("Nenhum rosto detectado");
+                        } else {
+                            logMessage(`Rostos detectados: ${detections.length}`);
+                            const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                            faceapi.draw.drawDetections(canvas, resizedDetections);
+                            faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
+
+                            if (faceMatcher) {
+                                const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor));
+                                results.forEach((result, i) => {
+                                    const box = resizedDetections[i].detection.box;
+                                    const text = result.label === "unknown" ? "Desconhecido" : result.toString();
+                                    logMessage(`Rosto reconhecido como: ${text}`);
+                                    const drawBox = new faceapi.draw.DrawBox(box, { label: text });
+                                    drawBox.draw(canvas);
+                                });
+                            }
+                        }
+                    }, 100);
+                });
+
+                registerButton.addEventListener('click', async () => {
+                    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
+                    if (detections.length > 0) {
+                        const descriptor = detections[0].descriptor;
+                        const nome = prompt("Por favor, informe seu nome:");
+
+                        // Enviar dados para o servidor PHP
+                        const response = await fetch('registrar_usuario.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                nome: nome,
+                                imagem_rosto: JSON.stringify(Array.from(descriptor))
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            labeledFaceDescriptors.push(new faceapi.LabeledFaceDescriptors(nome, [descriptor]));
+                            faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors);
+                            logMessage(`Rosto registrado como ${nome}`);
+                        } else {
+                            logError(`Erro ao registrar rosto: ${result.error}`);
+                        }
+                    } else {
+                        logMessage("Nenhum rosto detectado para registro");
+                    }
+                });
+
+                async function loadRegisteredUsers() {
+                    try {
+                        const response = await fetch('obter_usuarios.php');
+                        const usuarios = await response.json();
+
+                        if (usuarios.success === false) {
+                            throw new Error(usuarios.error);
+                        }
+
+                        usuarios.forEach(usuario => {
+                            const descritores = [new Float32Array(Object.values(JSON.parse(usuario.imagem_rosto)))];
+                            labeledFaceDescriptors.push(new faceapi.LabeledFaceDescriptors(usuario.nome, descritores));
+                        });
+
+                        faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors);
+                        logMessage(`Carregados ${usuarios.length} usuários do banco de dados.`);
+                    } catch (error) {
+                        logError('Erro ao carregar usuários: ' + error.message);
+                    }
+                }
+
+                startVideo();
+            } catch (error) {
+                logError('Erro ao carregar os modelos: ' + error);
+            }
+
+            function logMessage(message) {
+                const p = document.createElement('p');
+                p.textContent = message;
+                messagesDiv.appendChild(p);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight; // Rolar para o final das mensagens
+            }
+
+            function logError(message) {
+                const p = document.createElement('p');
+                p.textContent = `[Erro] ${message}`;
+                p.style.color = 'red';
+                messagesDiv.appendChild(p);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight; // Rolar para o final das mensagens
+            }
+        });
+    </script>
+</body>
+</html>
